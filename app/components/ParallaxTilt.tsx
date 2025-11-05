@@ -8,6 +8,7 @@ type ParallaxTiltProps = {
   maxTiltDeg?: number; // maximum rotation on each axis
   maxTranslatePx?: number; // subtle translation
   perspectivePx?: number; // perspective strength
+  lerpFactor?: number; // smoothing factor (0..1) smaller = smoother/slower
 };
 
 export default function ParallaxTilt({
@@ -16,6 +17,7 @@ export default function ParallaxTilt({
   maxTiltDeg = 6,
   maxTranslatePx = 10,
   perspectivePx = 900,
+  lerpFactor = 0.12,
 }: ParallaxTiltProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -36,10 +38,10 @@ export default function ParallaxTilt({
       const c = currentRef.current;
       const t = targetRef.current;
       // Smooth spring-like lerp
-      c.rx += (t.rx - c.rx) * 0.12;
-      c.ry += (t.ry - c.ry) * 0.12;
-      c.tx += (t.tx - c.tx) * 0.12;
-      c.ty += (t.ty - c.ty) * 0.12;
+      c.rx += (t.rx - c.rx) * lerpFactor;
+      c.ry += (t.ry - c.ry) * lerpFactor;
+      c.tx += (t.tx - c.tx) * lerpFactor;
+      c.ty += (t.ty - c.ty) * lerpFactor;
       apply();
     }
 
@@ -84,7 +86,7 @@ export default function ParallaxTilt({
       window.removeEventListener("deviceorientation", onDeviceOrientation);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [maxTiltDeg, maxTranslatePx, perspectivePx]);
+  }, [maxTiltDeg, maxTranslatePx, perspectivePx, lerpFactor]);
 
   return (
     <div ref={ref} className={className} style={{ transformStyle: "preserve-3d", willChange: "transform" }}>
