@@ -3,6 +3,7 @@ import HeroForm from "./components/HeroForm";
 import ConnectYouTubeButton from "./components/ConnectYouTubeButton";
 import ParallaxTilt from "./components/ParallaxTilt";
 import SignInButton from "./components/SignInButton";
+import UserStatus from "./components/UserStatus";
 
 export default function Home() {
   return (
@@ -18,6 +19,9 @@ export default function Home() {
               Paste a public video link. We remove the watermark, download the video, and generate captions, upload it to your social media accounts.
             </p>
             <HeroForm />
+            <div className="mt-3 flex items-center justify-center">
+              <UserStatus />
+            </div>
             <div className="mt-4">
               <ConnectYouTubeButton />
             </div>

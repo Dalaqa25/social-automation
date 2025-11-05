@@ -1,13 +1,44 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+
 export default function ConnectYouTubeButton() {
+  const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+  const supabase = getSupabaseBrowserClient();
+
+  useEffect(() => {
+    let mounted = true;
+    const sync = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (mounted) setIsAuthed(!!session);
+    };
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+      if (mounted) setIsAuthed(!!session);
+    });
+    sync();
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const disabled = !isAuthed;
+
   function handleClick() {
+    if (disabled) return;
     console.log("Connect YouTube clicked");
   }
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-indigo-600 to-pink-600 px-5 py-2.5 font-medium text-white shadow-md cursor-pointer transition duration-200 ease-out hover:opacity-95 hover:shadow-lg hover:scale-[1.02] active:opacity-90 focus:outline-none focus:ring-2 focus:ring-indigo-500/70"
+      disabled={disabled}
+      className={
+        `inline-flex items-center gap-2 rounded-full px-5 py-2.5 font-medium shadow-md transition duration-200 ease-out focus:outline-none focus:ring-2 ` +
+        (disabled
+          ? "bg-gray-200 text-gray-500 cursor-not-allowed border border-gray-300"
+          : "bg-gradient-to-r from-indigo-600 to-pink-600 text-white cursor-pointer hover:opacity-95 hover:shadow-lg hover:scale-[1.02] active:opacity-90 focus:ring-indigo-500/70")
+      }
       onClick={handleClick}
     >
       <svg

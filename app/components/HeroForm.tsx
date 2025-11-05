@@ -5,17 +5,38 @@ import { useMemo, useState } from "react";
 export default function HeroForm() {
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const isValid = useMemo(() => validateYouTubeUrl(url), [url]);
+  const isValid = useMemo(() => validateVideoUrl(url), [url]);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!isValid) {
-      setError("Please paste a valid public YouTube URL.");
+      setError("Please paste a valid public YouTube or TikTok URL.");
       return;
     }
     setError(null);
-    // Minimal behavior for now – wire to your flow later
-    console.log("Starting automation for:", url);
+    // Verify public availability server-side via oEmbed
+    (async () => {
+      try {
+        const res = await fetch('/api/validate-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const json = await res.json();
+        if (!json?.ok) {
+          setError('This video appears to be private or unavailable.');
+          return;
+        }
+        if (json?.mismatch && json?.canonical_url && json?.canonical_url !== url) {
+          setError('Note: your link redirects to a different public URL. Please paste the final URL and try again.');
+          return;
+        }
+        console.log('Validated video:', json);
+        // Continue with your automation flow here
+      } catch (err) {
+        setError('Could not validate the video. Please try again.');
+      }
+    })();
   }
 
   return (
@@ -30,7 +51,7 @@ export default function HeroForm() {
             name="youtubeUrl"
             type="url"
             inputMode="url"
-            placeholder="Paste TikTok video public URL"
+            placeholder="Paste YouTube or TikTok public video URL"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             className="flex-1 bg-transparent px-4 py-2 text-base text-gray-900 placeholder-gray-500 outline-none sm:text-lg dark:text-gray-100 dark:placeholder-gray-400"
@@ -55,23 +76,43 @@ export default function HeroForm() {
   );
 }
 
-function validateYouTubeUrl(candidate: string): boolean {
+function validateVideoUrl(candidate: string): boolean {
   if (!candidate) return false;
   try {
     const u = new URL(candidate);
     const hostname = u.hostname.replace(/^www\./, "");
-    const hosts = new Set([
+    // Supported platforms
+    const ytHosts = new Set([
       "youtube.com",
       "m.youtube.com",
       "youtu.be",
       "music.youtube.com",
     ]);
-    if (!hosts.has(hostname)) return false;
-    // Accept common paths: watch?v=, youtu.be/<id>, shorts/<id>, embed/<id>
-    if (hostname === "youtu.be") return u.pathname.length > 1;
-    if (u.pathname === "/watch") return u.searchParams.has("v");
-    if (u.pathname.startsWith("/shorts/")) return true;
-    if (u.pathname.startsWith("/embed/")) return true;
+    const ttHosts = new Set([
+      "tiktok.com",
+      "m.tiktok.com",
+      "vm.tiktok.com",
+      "vt.tiktok.com",
+    ]);
+
+    if (ytHosts.has(hostname)) {
+      // Accept common YouTube paths: watch?v=, youtu.be/<id>, shorts/<id>, embed/<id>
+      if (hostname === "youtu.be") return u.pathname.length > 1;
+      if (u.pathname === "/watch") return u.searchParams.has("v");
+      if (u.pathname.startsWith("/shorts/")) return true;
+      if (u.pathname.startsWith("/embed/")) return true;
+      return false;
+    }
+
+    if (ttHosts.has(hostname)) {
+      // Accept common TikTok forms:
+      // - tiktok.com/@user/video/<id>
+      // - vm.tiktok.com/... or vt.tiktok.com/... short links
+      if (/\/video\/\d+/.test(u.pathname)) return true;
+      if (hostname === "vm.tiktok.com" || hostname === "vt.tiktok.com") return true;
+      return false;
+    }
+
     return false;
   } catch {
     return false;
