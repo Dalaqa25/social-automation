@@ -30,7 +30,7 @@ export default function HeroForm() {
             name="youtubeUrl"
             type="url"
             inputMode="url"
-            placeholder="Paste YouTube video public URL"
+            placeholder="Paste TikTok video public URL"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             className="flex-1 bg-transparent px-4 py-2 text-base text-gray-900 placeholder-gray-500 outline-none sm:text-lg dark:text-gray-100 dark:placeholder-gray-400"

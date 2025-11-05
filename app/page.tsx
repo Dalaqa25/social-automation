@@ -2,6 +2,8 @@ import AutomationGraph from "./components/AutomationGraph";
 import HeroForm from "./components/HeroForm";
 import ConnectYouTubeButton from "./components/ConnectYouTubeButton";
 import ParallaxTilt from "./components/ParallaxTilt";
+import SignInButton from "./components/SignInButton";
+
 export default function Home() {
   return (
     <section className="relative min-h-screen flex items-center w-full">
@@ -18,6 +20,9 @@ export default function Home() {
             <HeroForm />
             <div className="mt-4">
               <ConnectYouTubeButton />
+            </div>
+            <div className="mt-4">
+              <SignInButton />
             </div>
           </div>
         </ParallaxTilt>
