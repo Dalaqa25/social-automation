@@ -29,6 +29,7 @@ export default function ParallaxTilt({
     if (!el) return;
 
     function apply() {
+      if (!el) return;
       const c = currentRef.current;
       el.style.transform = `perspective(${perspectivePx}px) rotateX(${c.rx}deg) rotateY(${c.ry}deg) translate(${c.tx}px, ${c.ty}px)`;
       rafRef.current = requestAnimationFrame(tick);
@@ -46,6 +47,7 @@ export default function ParallaxTilt({
     }
 
     function onPointerMove(e: PointerEvent) {
+      if (!el) return;
       const rect = el.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
@@ -81,6 +83,7 @@ export default function ParallaxTilt({
     window.addEventListener("deviceorientation", onDeviceOrientation);
 
     return () => {
+      if (!el) return;
       el.removeEventListener("pointermove", onPointerMove);
       el.removeEventListener("pointerleave", onPointerLeave);
       window.removeEventListener("deviceorientation", onDeviceOrientation);

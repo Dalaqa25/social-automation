@@ -44,6 +44,7 @@ export default function AutomationGraph({
     let devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
     function resize() {
+      if (!canvas) return;
       const { clientWidth, clientHeight } = canvas;
       canvas.width = Math.floor(clientWidth * devicePixelRatio);
       canvas.height = Math.floor(clientHeight * devicePixelRatio);
@@ -54,6 +55,7 @@ export default function AutomationGraph({
     }
 
     function initNodes() {
+      if (!canvas) return;
       const width = canvas.width;
       const height = canvas.height;
       const count = Math.floor(nodeCount * (width * height) / (1200 * 800));
@@ -70,6 +72,7 @@ export default function AutomationGraph({
     }
 
     function stepNodes() {
+      if (!canvas) return;
       const { width, height } = canvas;
       for (const node of nodesRef.current) {
         node.position.x += node.velocity.x * devicePixelRatio * 0.8;
@@ -80,6 +83,7 @@ export default function AutomationGraph({
     }
 
     function draw() {
+      if (!canvas || !ctx) return;
       const { width, height } = canvas;
       ctx.clearRect(0, 0, width, height);
 
@@ -151,6 +155,7 @@ export default function AutomationGraph({
     }
 
     const onMouseMove = (e: MouseEvent) => {
+      if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
       const x = (e.clientX - rect.left) * devicePixelRatio;
       const y = (e.clientY - rect.top) * devicePixelRatio;

@@ -1,4 +1,5 @@
-import { createBrowserClient, type SupabaseClient } from '@supabase/ssr';
+import { createBrowserClient } from '@supabase/ssr';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Browser/client-side Supabase instance with cookie sync for SSR
 // Using @supabase/ssr ensures the auth session is mirrored into cookies

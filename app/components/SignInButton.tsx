@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 
 export default function SignInButton() {
@@ -14,7 +15,7 @@ export default function SignInButton() {
       const { data: { session } } = await supabase.auth.getSession();
       if (mounted) setIsAuthed(!!session);
     };
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       if (mounted) setIsAuthed(!!session);
     });
     sync();

@@ -43,7 +43,7 @@ export default function ConnectYouTubeButton() {
         setIsChecking(false);
       }
     };
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt: any, session: any) => {
       (async () => {
         if (!mounted) return;
         setIsAuthed(!!session);

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getJob, updateJobStep, completeJob } from '@/lib/job-tracker';
-import { logCallback } from '../job/debug';
+import { getJob, updateJobStep, completeJob, logCallback } from '@/lib/job-tracker';
 
 export async function POST(req: Request) {
   try {
