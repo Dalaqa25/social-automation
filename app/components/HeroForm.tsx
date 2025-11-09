@@ -28,6 +28,8 @@ export default function HeroForm() {
   const [currentStep, setCurrentStep] = useState(0);
   const [result, setResult] = useState<{ youtubeUrl?: string; videoId?: string; error?: string } | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingStartTimeRef = useRef<number | null>(null);
+  const pollingAttemptsRef = useRef<number>(0);
   const isValid = useMemo(() => validateVideoUrl(url), [url]);
 
   function isTikTokUrl(url: string): boolean {
@@ -48,17 +50,52 @@ export default function HeroForm() {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      pollingStartTimeRef.current = null;
+      pollingAttemptsRef.current = 0;
       return;
     }
 
+    // Initialize polling start time
+    if (!pollingStartTimeRef.current) {
+      pollingStartTimeRef.current = Date.now();
+    }
+
+    const MAX_POLLING_TIME = 10 * 60 * 1000; // 10 minutes max
+    const MAX_POLLING_ATTEMPTS = 300; // Max 300 attempts (10 min / 2 sec intervals)
+
     const pollStatus = async () => {
       try {
+        // Check timeout
+        const elapsed = Date.now() - (pollingStartTimeRef.current || Date.now());
+        if (elapsed > MAX_POLLING_TIME) {
+          console.warn("Polling timeout reached (10 minutes). Stopping polling.");
+          setError("Workflow is taking longer than expected. Please check n8n or try again.");
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          return;
+        }
+
+        // Check max attempts
+        pollingAttemptsRef.current += 1;
+        if (pollingAttemptsRef.current > MAX_POLLING_ATTEMPTS) {
+          console.warn("Max polling attempts reached. Stopping polling.");
+          setError("Workflow is taking longer than expected. Please check n8n or try again.");
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          return;
+        }
+
         const res = await fetch(`/api/job/status?jobId=${jobId}`);
         
         // If 404, job doesn't exist (likely due to serverless cold start)
         // Stop polling to avoid spam
         if (res.status === 404) {
           console.warn("Job not found (may be due to serverless cold start). Stopping polling.");
+          setError("Job not found. The workflow may have been lost. Please try again.");
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
@@ -79,20 +116,18 @@ export default function HeroForm() {
 
           // Stop polling if job is complete or has error
           if (job.status === "completed" || job.status === "error") {
+            console.log("Job completed. Stopping polling.");
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
               pollingIntervalRef.current = null;
             }
+            pollingStartTimeRef.current = null;
+            pollingAttemptsRef.current = 0;
           } else {
-            // If job is still processing but no step updates, simulate progress
-            // This handles the case where n8n doesn't send intermediate updates
-            const timeSinceStart = Date.now() - new Date(job.createdAt).getTime();
-            const minutesElapsed = timeSinceStart / 1000 / 60;
-            
-            // After 1 minute, mark first step as processing if still pending
-            if (minutesElapsed > 1 && job.steps[0].status === "pending") {
-              // This is just visual - the actual update will come from n8n callback
-              console.log("Workflow is running but no updates received yet...");
+            // Log progress every 30 seconds
+            if (pollingAttemptsRef.current % 15 === 0) {
+              const minutesElapsed = Math.floor(elapsed / 60000);
+              console.log(`Polling... (${minutesElapsed}m elapsed, attempt ${pollingAttemptsRef.current})`);
             }
           }
         } else {
@@ -107,10 +142,12 @@ export default function HeroForm() {
         }
       } catch (err) {
         console.error("Failed to poll job status:", err);
-        // Stop polling on network errors
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
+        // Stop polling on network errors after multiple failures
+        if (pollingAttemptsRef.current > 10) {
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
         }
       }
     };
@@ -124,6 +161,8 @@ export default function HeroForm() {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      pollingStartTimeRef.current = null;
+      pollingAttemptsRef.current = 0;
     };
   }, [jobId, showModal]);
 

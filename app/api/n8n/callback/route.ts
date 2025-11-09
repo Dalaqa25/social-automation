@@ -62,18 +62,25 @@ export async function POST(req: Request) {
         const stepId = stepMap[step] || step;
         if (error) {
           await updateJobStep(jobId, stepId, 'error');
-        } else if (status === 'completed' || youtubeUrl) {
+        } else if (status === 'completed' || youtubeUrl || videoId) {
           await updateJobStep(jobId, stepId, 'completed');
         } else {
           await updateJobStep(jobId, stepId, 'processing');
         }
       }
       
-      // If this is the final result (has youtubeUrl or error), complete the job
+      // If this is the final result (has youtubeUrl, videoId, or error), complete the job
       // This will mark all steps as completed
-      if (youtubeUrl || error) {
+      // Construct youtubeUrl from videoId if not provided but videoId exists
+      let finalYoutubeUrl = youtubeUrl;
+      if (!finalYoutubeUrl && videoId) {
+        // Construct YouTube Shorts URL from videoId
+        finalYoutubeUrl = `https://youtube.com/shorts/${videoId}`;
+      }
+      
+      if (finalYoutubeUrl || videoId || error) {
         await completeJob(jobId, {
-          youtubeUrl,
+          youtubeUrl: finalYoutubeUrl,
           videoId,
           error,
         });
