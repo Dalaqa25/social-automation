@@ -61,28 +61,77 @@ export async function POST(req: Request) {
       callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/n8n/callback`
     };
 
-    // Send POST request to n8n webhook
-    const response = await fetch(N8N_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      cache: 'no-store',
-    });
+    // Log the request we're sending
+    console.log('=== SENDING REQUEST TO N8N ===');
+    console.log('URL:', N8N_WEBHOOK_URL);
+    console.log('Payload:', JSON.stringify(payload, null, 2));
 
-    const responseData = await response.json().catch(() => ({
-      status: response.status,
-      statusText: response.statusText,
-    }));
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    let response;
+    try {
+      // Send POST request to n8n webhook
+      // Match Postman request format exactly
+      response = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        // Don't use cache for webhooks
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'Request to n8n webhook timed out after 30 seconds',
+          },
+          { status: 504 }
+        );
+      }
+      throw fetchError; // Re-throw other errors
+    }
+
+    // Try to get response text first (in case it's not JSON)
+    const responseText = await response.text();
+    console.log('=== N8N RESPONSE ===');
+    console.log('Status:', response.status, response.statusText);
+    console.log('Response Text:', responseText);
+
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+    } catch {
+      responseData = {
+        raw: responseText,
+        status: response.status,
+        statusText: response.statusText,
+      };
+    }
 
     if (!response.ok) {
+      console.error('=== N8N ERROR ===');
+      console.error('Status:', response.status);
+      console.error('Response:', responseData);
+      
       return NextResponse.json(
         {
           ok: false,
           error: 'n8n webhook returned an error',
           status: response.status,
-          response: responseData,
+          statusText: response.statusText,
+          details: responseData,
+          message: typeof responseData === 'object' && responseData.message 
+            ? responseData.message 
+            : responseData.raw || 'Unknown error from n8n',
         },
         { status: response.status }
       );

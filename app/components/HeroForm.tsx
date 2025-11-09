@@ -163,7 +163,12 @@ export default function HeroForm() {
                 return updated;
               });
             } else {
-              setError(n8nJson?.error || 'Failed to trigger automation workflow.');
+              // Show detailed error message
+              const errorMsg = n8nJson?.message || n8nJson?.error || 'Failed to trigger automation workflow.';
+              const statusInfo = n8nJson?.status ? ` (Status: ${n8nJson.status})` : '';
+              const details = n8nJson?.details ? ` Details: ${JSON.stringify(n8nJson.details)}` : '';
+              setError(`${errorMsg}${statusInfo}${details}`);
+              console.error('n8n error response:', n8nJson);
               setLoading(false);
             }
           } catch (n8nErr) {
