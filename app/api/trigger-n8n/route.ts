@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createJob } from '@/lib/job-tracker';
 
-const N8N_WEBHOOK_URL = 'https://n8n-1-490z.onrender.com/webhook/c15bf8fe-4f46-4197-a0a5-186a354e4c77';
+const N8N_WEBHOOK_URL = 'https://n8n-1-490z.onrender.com/webhook-test/c15bf8fe-4f46-4197-a0a5-186a354e4c77';
 
 function isValidTikTokUrl(url: string): boolean {
   if (!url || typeof url !== 'string') return false;
