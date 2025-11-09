@@ -1,35 +1,12 @@
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
-import ProgressModal from "./ProgressModal";
-
-type StepStatus = "pending" | "processing" | "completed" | "error";
-
-interface Step {
-  id: string;
-  label: string;
-  status: StepStatus;
-}
+import { useMemo, useState } from "react";
 
 export default function HeroForm() {
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [steps, setSteps] = useState<Step[]>([
-    { id: "get-tiktok-data", label: "Get TikTok video page data", status: "pending" },
-    { id: "scrape-video-url", label: "Scrape raw video URL", status: "pending" },
-    { id: "remove-watermark", label: "Output video file without watermark", status: "pending" },
-    { id: "generate-llm", label: "Generate basic LLM chain", status: "pending" },
-    { id: "upload-youtube", label: "Upload the video into YouTube", status: "pending" },
-  ]);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [result, setResult] = useState<{ youtubeUrl?: string; videoId?: string; error?: string } | null>(null);
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const pollingStartTimeRef = useRef<number | null>(null);
-  const pollingAttemptsRef = useRef<number>(0);
   const isValid = useMemo(() => validateVideoUrl(url), [url]);
 
   function isTikTokUrl(url: string): boolean {
@@ -42,129 +19,6 @@ export default function HeroForm() {
       return false;
     }
   }
-
-  // Poll for job status updates
-  useEffect(() => {
-    if (!jobId || !showModal) {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      pollingStartTimeRef.current = null;
-      pollingAttemptsRef.current = 0;
-      return;
-    }
-
-    // Initialize polling start time
-    if (!pollingStartTimeRef.current) {
-      pollingStartTimeRef.current = Date.now();
-    }
-
-    const MAX_POLLING_TIME = 10 * 60 * 1000; // 10 minutes max
-    const MAX_POLLING_ATTEMPTS = 300; // Max 300 attempts (10 min / 2 sec intervals)
-
-    const pollStatus = async () => {
-      try {
-        // Check timeout
-        const elapsed = Date.now() - (pollingStartTimeRef.current || Date.now());
-        if (elapsed > MAX_POLLING_TIME) {
-          console.warn("Polling timeout reached (10 minutes). Stopping polling.");
-          setError("Workflow is taking longer than expected. Please check n8n or try again.");
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          return;
-        }
-
-        // Check max attempts
-        pollingAttemptsRef.current += 1;
-        if (pollingAttemptsRef.current > MAX_POLLING_ATTEMPTS) {
-          console.warn("Max polling attempts reached. Stopping polling.");
-          setError("Workflow is taking longer than expected. Please check n8n or try again.");
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          return;
-        }
-
-        const res = await fetch(`/api/job/status?jobId=${jobId}`);
-        
-        // If 404, job doesn't exist (likely due to serverless cold start)
-        // Stop polling to avoid spam
-        if (res.status === 404) {
-          console.warn("Job not found (may be due to serverless cold start). Stopping polling.");
-          setError("Job not found. The workflow may have been lost. Please try again.");
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          return;
-        }
-        
-        const json = await res.json();
-
-        if (json.ok && json.job) {
-          const job = json.job;
-          setSteps(job.steps);
-          setCurrentStep(job.currentStep);
-          
-          if (job.result) {
-            setResult(job.result);
-          }
-
-          // Stop polling if job is complete or has error
-          if (job.status === "completed" || job.status === "error") {
-            console.log("Job completed. Stopping polling.");
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-            pollingStartTimeRef.current = null;
-            pollingAttemptsRef.current = 0;
-          } else {
-            // Log progress every 30 seconds
-            if (pollingAttemptsRef.current % 15 === 0) {
-              const minutesElapsed = Math.floor(elapsed / 60000);
-              console.log(`Polling... (${minutesElapsed}m elapsed, attempt ${pollingAttemptsRef.current})`);
-            }
-          }
-        } else {
-          console.error("Job status error:", json);
-          // Stop polling on persistent errors
-          if (res.status >= 500) {
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Failed to poll job status:", err);
-        // Stop polling on network errors after multiple failures
-        if (pollingAttemptsRef.current > 10) {
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-        }
-      }
-    };
-
-    // Poll immediately, then every 2 seconds
-    pollStatus();
-    pollingIntervalRef.current = setInterval(pollStatus, 2000);
-
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-      pollingStartTimeRef.current = null;
-      pollingAttemptsRef.current = 0;
-    };
-  }, [jobId, showModal]);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -205,33 +59,13 @@ export default function HeroForm() {
               body: JSON.stringify({ url }),
             });
             const n8nJson = await n8nRes.json();
-            if (n8nJson?.ok && n8nJson?.jobId) {
-              // Reset modal state
-              setSteps([
-                { id: "get-tiktok-data", label: "Get TikTok video page data", status: "pending" },
-                { id: "scrape-video-url", label: "Scrape raw video URL", status: "pending" },
-                { id: "remove-watermark", label: "Output video file without watermark", status: "pending" },
-                { id: "generate-llm", label: "Generate basic LLM chain", status: "pending" },
-                { id: "upload-youtube", label: "Upload the video into YouTube", status: "pending" },
-              ]);
-              setCurrentStep(0);
-              setResult(null);
-              setJobId(n8nJson.jobId);
-              setShowModal(true);
-              setLoading(false); // Stop loading since modal will show progress
-              // Mark first step as processing
-              setSteps((prev) => {
-                const updated = [...prev];
-                updated[0].status = "processing";
-                return updated;
-              });
+            if (n8nJson?.ok) {
+              setSuccess('Workflow triggered successfully! The automation is now processing your video.');
+              setUrl(""); // Clear form
+              setLoading(false);
             } else {
-              // Show detailed error message
               const errorMsg = n8nJson?.message || n8nJson?.error || 'Failed to trigger automation workflow.';
-              const statusInfo = n8nJson?.status ? ` (Status: ${n8nJson.status})` : '';
-              const details = n8nJson?.details ? ` Details: ${JSON.stringify(n8nJson.details)}` : '';
-              setError(`${errorMsg}${statusInfo}${details}`);
-              console.error('n8n error response:', n8nJson);
+              setError(errorMsg);
               setLoading(false);
             }
           } catch (n8nErr) {
@@ -290,24 +124,6 @@ export default function HeroForm() {
           {success}
         </p>
       ) : null}
-
-      {/* Progress Modal */}
-      <ProgressModal
-        isOpen={showModal}
-        onClose={() => {
-          setShowModal(false);
-          setJobId(null);
-          setUrl(""); // Clear form after completion
-        }}
-        steps={steps}
-        currentStep={currentStep}
-        message={
-          currentStep === 0 && steps[0].status === "processing"
-            ? "Successfully triggered automation workflow!"
-            : undefined
-        }
-        result={result || undefined}
-      />
     </form>
   );
 }
@@ -354,5 +170,3 @@ function validateVideoUrl(candidate: string): boolean {
     return false;
   }
 }
-
-

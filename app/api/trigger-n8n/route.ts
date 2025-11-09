@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createJob } from '@/lib/job-tracker';
 
 const N8N_WEBHOOK_URL = 'https://n8n-1-490z.onrender.com/webhook/c15bf8fe-4f46-4197-a0a5-186a354e4c77';
 
@@ -51,14 +50,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create a job to track progress
-    const jobId = await createJob(url);
-
-    // Send URL and jobId to n8n webhook so it can call back with updates
+    // Send URL to n8n webhook
     const payload = { 
-      url,
-      jobId,
-      callbackUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/n8n/callback`
+      url
     };
 
     // Log the request we're sending
@@ -140,7 +134,6 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       message: 'Successfully triggered automation workflow',
-      jobId,
       n8nResponse: responseData,
     });
   } catch (e: any) {
