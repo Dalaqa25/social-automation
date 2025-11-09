@@ -31,9 +31,10 @@ export default function SignInButton() {
   const handleSignIn = async () => {
     try {
       setIsLoading(true);
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
       await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: 'http://localhost:3000/auth/callback' },
+        options: { redirectTo: `${baseUrl}/auth/callback` },
       });
     } finally {
       // Supabase will redirect away; this is a safety in case it doesn't

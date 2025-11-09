@@ -54,6 +54,18 @@ export default function HeroForm() {
     const pollStatus = async () => {
       try {
         const res = await fetch(`/api/job/status?jobId=${jobId}`);
+        
+        // If 404, job doesn't exist (likely due to serverless cold start)
+        // Stop polling to avoid spam
+        if (res.status === 404) {
+          console.warn("Job not found (may be due to serverless cold start). Stopping polling.");
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          return;
+        }
+        
         const json = await res.json();
 
         if (json.ok && json.job) {
@@ -85,9 +97,21 @@ export default function HeroForm() {
           }
         } else {
           console.error("Job status error:", json);
+          // Stop polling on persistent errors
+          if (res.status >= 500) {
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+          }
         }
       } catch (err) {
         console.error("Failed to poll job status:", err);
+        // Stop polling on network errors
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+          pollingIntervalRef.current = null;
+        }
       }
     };
 

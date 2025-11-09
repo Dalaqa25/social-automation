@@ -61,18 +61,18 @@ export async function POST(req: Request) {
         
         const stepId = stepMap[step] || step;
         if (error) {
-          updateJobStep(jobId, stepId, 'error');
+          await updateJobStep(jobId, stepId, 'error');
         } else if (status === 'completed' || youtubeUrl) {
-          updateJobStep(jobId, stepId, 'completed');
+          await updateJobStep(jobId, stepId, 'completed');
         } else {
-          updateJobStep(jobId, stepId, 'processing');
+          await updateJobStep(jobId, stepId, 'processing');
         }
       }
       
       // If this is the final result (has youtubeUrl or error), complete the job
       // This will mark all steps as completed
       if (youtubeUrl || error) {
-        completeJob(jobId, {
+        await completeJob(jobId, {
           youtubeUrl,
           videoId,
           error,
@@ -80,9 +80,9 @@ export async function POST(req: Request) {
       } else if (!step && jobId) {
         // If no step specified but we have a jobId, mark first step as processing
         // This handles the case where n8n sends a callback without step info
-        const job = getJob(jobId);
+        const job = await getJob(jobId);
         if (job && job.steps[0].status === 'pending') {
-          updateJobStep(jobId, 'get-tiktok-data', 'processing');
+          await updateJobStep(jobId, 'get-tiktok-data', 'processing');
         }
       }
     }

@@ -1,5 +1,5 @@
-// In-memory job tracker
-// In production, you'd want to use Redis or a database
+// Database-backed job tracker using Supabase
+import { getSupabaseServerClient } from '@/lib/supabase/server';
 
 type JobStatus = "pending" | "processing" | "completed" | "error";
 
@@ -45,8 +45,21 @@ interface Job {
   updatedAt: Date;
 }
 
-// In-memory store (replace with Redis/DB in production)
-const jobs = new Map<string, Job>();
+// Database row type (snake_case)
+interface JobRow {
+  id: string;
+  url: string;
+  status: JobStatus;
+  current_step: number;
+  steps: JobStep[];
+  result?: {
+    youtubeUrl?: string;
+    videoId?: string;
+    error?: string;
+  } | null;
+  created_at: string;
+  updated_at: string;
+}
 
 // Default workflow steps
 const DEFAULT_STEPS: JobStep[] = [
@@ -57,60 +70,136 @@ const DEFAULT_STEPS: JobStep[] = [
   { id: "upload-youtube", label: "Upload the video into YouTube", status: "pending" },
 ];
 
-export function createJob(url: string): string {
-  const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const job: Job = {
-    id: jobId,
-    url,
-    status: "pending",
-    currentStep: 0,
-    steps: DEFAULT_STEPS.map((s) => ({ ...s })),
-    createdAt: new Date(),
-    updatedAt: new Date(),
+// Convert database row to Job interface
+function rowToJob(row: JobRow): Job {
+  return {
+    id: row.id,
+    url: row.url,
+    status: row.status,
+    currentStep: row.current_step,
+    steps: row.steps,
+    result: row.result || undefined,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
   };
-  jobs.set(jobId, job);
+}
+
+export async function createJob(url: string): Promise<string> {
+  const supabase = getSupabaseServerClient();
+  const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const { error } = await supabase
+    .from('jobs')
+    .insert({
+      id: jobId,
+      url,
+      status: 'pending',
+      current_step: 0,
+      steps: DEFAULT_STEPS.map((s) => ({ ...s })),
+      result: null,
+    });
+
+  if (error) {
+    console.error('Error creating job:', error);
+    throw new Error(`Failed to create job: ${error.message}`);
+  }
+
   return jobId;
 }
 
-export function getJob(jobId: string): Job | null {
-  return jobs.get(jobId) || null;
+export async function getJob(jobId: string): Promise<Job | null> {
+  const supabase = getSupabaseServerClient();
+  
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('id', jobId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      // No rows returned
+      return null;
+    }
+    console.error('Error getting job:', error);
+    return null;
+  }
+
+  return rowToJob(data as JobRow);
 }
 
-export function updateJobStep(jobId: string, stepId: string, status: StepStatus): boolean {
-  const job = jobs.get(jobId);
-  if (!job) return false;
+export async function updateJobStep(jobId: string, stepId: string, status: StepStatus): Promise<boolean> {
+  const supabase = getSupabaseServerClient();
+  
+  // First, get the current job
+  const { data: jobData, error: fetchError } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('id', jobId)
+    .single();
 
+  if (fetchError || !jobData) {
+    return false;
+  }
+
+  const job = rowToJob(jobData as JobRow);
   const stepIndex = job.steps.findIndex((s) => s.id === stepId);
   if (stepIndex === -1) return false;
 
+  // Update the step
   job.steps[stepIndex].status = status;
-  job.updatedAt = new Date();
 
-  // Update current step
+  // Update current step and status
+  let newCurrentStep = job.currentStep;
+  let newStatus = job.status;
+
   if (status === "processing") {
-    job.currentStep = stepIndex;
-    job.status = "processing";
+    newCurrentStep = stepIndex;
+    newStatus = "processing";
   } else if (status === "completed") {
-    job.currentStep = Math.max(job.currentStep, stepIndex + 1);
+    newCurrentStep = Math.max(job.currentStep, stepIndex + 1);
     // Check if all steps are complete
     if (job.steps.every((s) => s.status === "completed")) {
-      job.status = "completed";
+      newStatus = "completed";
     }
   } else if (status === "error") {
-    job.status = "error";
+    newStatus = "error";
   }
 
-  jobs.set(jobId, job);
+  // Update in database
+  const { error } = await supabase
+    .from('jobs')
+    .update({
+      steps: job.steps,
+      current_step: newCurrentStep,
+      status: newStatus,
+    })
+    .eq('id', jobId);
+
+  if (error) {
+    console.error('Error updating job step:', error);
+    return false;
+  }
+
   return true;
 }
 
-export function completeJob(jobId: string, result: Job["result"]): boolean {
-  const job = jobs.get(jobId);
-  if (!job) return false;
+export async function completeJob(jobId: string, result: Job["result"]): Promise<boolean> {
+  const supabase = getSupabaseServerClient();
+  
+  // First, get the current job
+  const { data: jobData, error: fetchError } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('id', jobId)
+    .single();
 
-  job.status = result?.error ? "error" : "completed";
-  job.result = result;
-  job.updatedAt = new Date();
+  if (fetchError || !jobData) {
+    return false;
+  }
+
+  const job = rowToJob(jobData as JobRow);
+  const newStatus = result?.error ? "error" : "completed";
   
   // Mark all remaining steps as completed if successful
   if (!result?.error) {
@@ -119,25 +208,42 @@ export function completeJob(jobId: string, result: Job["result"]): boolean {
         step.status = "completed";
       }
     });
-    job.currentStep = job.steps.length;
   }
 
-  jobs.set(jobId, job);
+  // Update in database
+  const { error } = await supabase
+    .from('jobs')
+    .update({
+      status: newStatus,
+      result: result || null,
+      steps: job.steps,
+      current_step: result?.error ? job.currentStep : job.steps.length,
+    })
+    .eq('id', jobId);
+
+  if (error) {
+    console.error('Error completing job:', error);
+    return false;
+  }
+
   return true;
 }
 
-// Cleanup old jobs (older than 1 hour)
-export function cleanupOldJobs() {
-  const oneHourAgo = Date.now() - 60 * 60 * 1000;
-  for (const [jobId, job] of jobs.entries()) {
-    if (job.createdAt.getTime() < oneHourAgo) {
-      jobs.delete(jobId);
-    }
+// Cleanup old jobs (older than 1 hour) - can be called manually or via cron
+export async function cleanupOldJobs(): Promise<number> {
+  const supabase = getSupabaseServerClient();
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  
+  const { data, error } = await supabase
+    .from('jobs')
+    .delete()
+    .lt('created_at', oneHourAgo)
+    .select();
+
+  if (error) {
+    console.error('Error cleaning up old jobs:', error);
+    return 0;
   }
-}
 
-// Run cleanup every 30 minutes
-if (typeof setInterval !== "undefined") {
-  setInterval(cleanupOldJobs, 30 * 60 * 1000);
+  return data?.length || 0;
 }
-

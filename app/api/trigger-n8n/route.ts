@@ -52,7 +52,7 @@ export async function POST(req: Request) {
     }
 
     // Create a job to track progress
-    const jobId = createJob(url);
+    const jobId = await createJob(url);
 
     // Send URL and jobId to n8n webhook so it can call back with updates
     const payload = { 
