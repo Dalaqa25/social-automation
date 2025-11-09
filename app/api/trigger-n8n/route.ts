@@ -50,9 +50,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Send URL to n8n webhook
+    // Send TikTok URL to n8n webhook
     const payload = { 
-      url
+      tiktok_url: url
     };
 
     // Log the request we're sending
