@@ -35,6 +35,14 @@ function deriveSummary(body: any): CallbackSummary {
     };
   }
 
+  if (body?.youtubeerror ?? body?.youtubeError ?? body?.youtube_error) {
+    return {
+      type: "error",
+      title: "YouTube Error",
+      message: toPlainString(body.youtubeerror ?? body.youtubeError ?? body.youtube_error),
+    };
+  }
+
   if (body?.error) {
     return {
       type: "error",

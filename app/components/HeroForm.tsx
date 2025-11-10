@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import AutomationDialog from "./AutomationDialog";
 
 type NoticeType = "success" | "error" | "info";
 
@@ -11,78 +12,19 @@ interface AutomationNotice {
   receivedAt: string;
 }
 
-function noticeStyles(type: NoticeType) {
-  switch (type) {
-    case "success":
-      return {
-        border: "border-green-200 dark:border-green-800",
-        background: "bg-green-50 dark:bg-green-900/20",
-        text: "text-green-800 dark:text-green-200",
-        badge: "bg-green-100 text-green-700 dark:bg-green-800/60 dark:text-green-200",
-      };
-    case "error":
-      return {
-        border: "border-red-200 dark:border-red-800",
-        background: "bg-red-50 dark:bg-red-900/20",
-        text: "text-red-800 dark:text-red-200",
-        badge: "bg-red-100 text-red-700 dark:bg-red-800/60 dark:text-red-200",
-      };
-    default:
-      return {
-        border: "border-blue-200 dark:border-blue-800",
-        background: "bg-blue-50 dark:bg-blue-900/20",
-        text: "text-blue-800 dark:text-blue-200",
-        badge: "bg-blue-100 text-blue-700 dark:bg-blue-800/60 dark:text-blue-200",
-      };
-  }
-}
-
-function formatTimestamp(iso: string) {
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
-}
-
 export default function HeroForm() {
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [automationNotice, setAutomationNotice] = useState<AutomationNotice | null>(null);
-  const [automationDetails, setAutomationDetails] = useState<any | null>(null);
   const [listeningForCallback, setListeningForCallback] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const lastReceivedRef = useRef<string | null>(null);
+  const pollAttemptsRef = useRef(0);
   const isValid = useMemo(() => validateVideoUrl(url), [url]);
 
-  useEffect(() => {
-    let active = true;
-    const loadInitialStatus = async () => {
-      try {
-        const res = await fetch("/api/n8n/status", { cache: "no-store" });
-        const json = await res.json();
-        if (!active || !json?.ok || !json?.callback) return;
-        const { receivedAt, summary, body } = json.callback;
-        if (receivedAt) {
-          lastReceivedRef.current = receivedAt;
-          setAutomationNotice({
-            type: summary.type,
-            title: summary.title,
-            message: summary.message,
-            receivedAt,
-          });
-          setAutomationDetails(body);
-        }
-      } catch (err) {
-        console.error("Failed to load latest automation status:", err);
-      }
-    };
-    loadInitialStatus();
-    return () => {
-      active = false;
-    };
-  }, []);
+  // Initial callbacks are no longer loaded on mount; we only show dialog for new callbacks.
 
   useEffect(() => {
     if (!listeningForCallback) return;
@@ -94,7 +36,7 @@ export default function HeroForm() {
         const res = await fetch("/api/n8n/status", { cache: "no-store" });
         const json = await res.json();
         if (cancelled || !json?.ok || !json?.callback) return;
-        const { receivedAt, summary, body } = json.callback;
+        const { receivedAt, summary } = json.callback;
         if (receivedAt && receivedAt !== lastReceivedRef.current) {
           lastReceivedRef.current = receivedAt;
           setAutomationNotice({
@@ -103,8 +45,22 @@ export default function HeroForm() {
             message: summary.message,
             receivedAt,
           });
-          setAutomationDetails(body);
           setListeningForCallback(false);
+          setDialogOpen(true);
+          pollAttemptsRef.current = 0;
+        } else {
+          pollAttemptsRef.current += 1;
+          if (pollAttemptsRef.current >= 15) {
+            setListeningForCallback(false);
+            pollAttemptsRef.current = 0;
+            setAutomationNotice({
+              type: "info",
+              title: "Waiting for automation response",
+              message: "We haven’t heard back from the automation yet. It may still be running—feel free to refresh or try again later.",
+              receivedAt: new Date().toISOString(),
+            });
+            setDialogOpen(true);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch automation status:", err);
@@ -117,6 +73,7 @@ export default function HeroForm() {
     return () => {
       cancelled = true;
       clearInterval(interval);
+      pollAttemptsRef.current = 0;
     };
   }, [listeningForCallback]);
 
@@ -172,7 +129,10 @@ export default function HeroForm() {
               setUrl("");
               setLoading(false);
               setSuccess("Automation workflow triggered. Waiting for response…");
-              setAutomationDetails(null);
+              setAutomationNotice(null);
+              setDialogOpen(false);
+              lastReceivedRef.current = null;
+              pollAttemptsRef.current = 0;
               setListeningForCallback(true);
             } else {
               const errorMsg = n8nJson?.message || n8nJson?.error || "Failed to trigger automation workflow.";
@@ -195,8 +155,6 @@ export default function HeroForm() {
       }
     })();
   }
-
-  const noticeStyle = automationNotice ? noticeStyles(automationNotice.type) : null;
 
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-3xl">
@@ -237,34 +195,16 @@ export default function HeroForm() {
         </p>
       ) : null}
 
-      {automationNotice && noticeStyle ? (
-        <div
-          className={`mt-5 rounded-xl border ${noticeStyle.border} ${noticeStyle.background} px-5 py-4 transition`}
-        >
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className={`text-sm font-semibold ${noticeStyle.text}`}>{automationNotice.title}</p>
-              <p className={`mt-1 text-sm ${noticeStyle.text}`}>{automationNotice.message}</p>
-            </div>
-            <span className={`rounded-full px-3 py-1 text-xs font-medium ${noticeStyle.badge}`}>
-              {automationNotice.type.toUpperCase()}
-            </span>
-          </div>
-          <p className="mt-3 text-xs text-gray-600 dark:text-gray-400">
-            Updated: {formatTimestamp(automationNotice.receivedAt)}
-          </p>
-          {automationDetails ? (
-            <details className="mt-3">
-              <summary className="cursor-pointer text-sm text-gray-600 underline decoration-dotted underline-offset-4 dark:text-gray-300">
-                View raw callback payload
-              </summary>
-              <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-black/5 p-3 text-xs text-gray-700 dark:bg-white/5 dark:text-gray-300">
-{JSON.stringify(automationDetails, null, 2)}
-              </pre>
-            </details>
-          ) : null}
-        </div>
-      ) : null}
+      <AutomationDialog
+        open={dialogOpen && !!automationNotice}
+        title={automationNotice?.title || "Automation Update"}
+        message={automationNotice?.message || ""}
+        onClose={() => {
+          setDialogOpen(false);
+          setAutomationNotice(null);
+          setListeningForCallback(false);
+        }}
+      />
     </form>
   );
 }
