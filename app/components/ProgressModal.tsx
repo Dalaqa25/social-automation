@@ -59,6 +59,15 @@ export default function ProgressModal({
           ) {
             return "Our LLM provider hit a rate limit. Please wait a minute and try again.";
           }
+          if (
+            err.includes("youtube") ||
+            err.includes("upload") ||
+            err.includes("googleapi") ||
+            err.includes("quotaexceeded") ||
+            err.includes("forbidden")
+          ) {
+            return "We ran into an issue uploading to YouTube. Please double-check your channel permissions and try again shortly.";
+          }
           return null;
         })()
       : null;

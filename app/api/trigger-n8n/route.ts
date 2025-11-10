@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createJob } from '@/lib/job-tracker';
 
 const N8N_WEBHOOK_URL = 'https://n8n-1-490z.onrender.com/webhook/c15bf8fe-4f46-4197-a0a5-186a354e4c77';
 const CALLBACK_URL = process.env.NEXT_PUBLIC_APP_URL 
@@ -54,21 +53,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create a job to track this automation
-    let jobId: string;
-    try {
-      jobId = await createJob(url);
-      console.log('Created job:', jobId);
-    } catch (jobError: any) {
-      console.error('Failed to create job:', jobError);
-      return NextResponse.json(
-        {
-          ok: false,
-          error: 'Failed to create job tracking. Please try again.',
-        },
-        { status: 500 }
-      );
-    }
+    // Generate a lightweight job identifier for logging / callbacks
+    const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     // Send TikTok URL and jobId to n8n webhook
     // Also include callback URL so N8n knows where to send results
