@@ -45,6 +45,7 @@ export default function HeroForm() {
             message: summary.message,
             receivedAt,
           });
+          setSuccess(null);
           setListeningForCallback(false);
           setDialogOpen(true);
           pollAttemptsRef.current = 0;
@@ -59,6 +60,7 @@ export default function HeroForm() {
               message: "We haven’t heard back from the automation yet. It may still be running—feel free to refresh or try again later.",
               receivedAt: new Date().toISOString(),
             });
+            setSuccess(null);
             setDialogOpen(true);
           }
         }
@@ -203,6 +205,7 @@ export default function HeroForm() {
           setDialogOpen(false);
           setAutomationNotice(null);
           setListeningForCallback(false);
+          setSuccess(null);
         }}
       />
     </form>
