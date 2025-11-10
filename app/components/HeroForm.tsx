@@ -1,13 +1,86 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
+import ProgressModal from "./ProgressModal";
+
+type StepStatus = "pending" | "processing" | "completed" | "error";
+
+interface Step {
+  id: string;
+  label: string;
+  status: StepStatus;
+}
+
+interface JobStatus {
+  id: string;
+  url: string;
+  status: "pending" | "processing" | "completed" | "error";
+  currentStep: number;
+  steps: Step[];
+  result?: {
+    youtubeUrl?: string;
+    videoId?: string;
+    error?: string;
+  };
+}
 
 export default function HeroForm() {
   const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isValid = useMemo(() => validateVideoUrl(url), [url]);
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Poll for job status when jobId is set
+  useEffect(() => {
+    if (!jobId) return;
+
+    // Start polling
+    const pollJobStatus = async () => {
+      try {
+        const res = await fetch(`/api/job/status?jobId=${jobId}`);
+        const json = await res.json();
+        
+        if (json?.ok && json?.job) {
+          setJobStatus(json.job);
+          
+          // Stop polling if job is completed or has error
+          if (json.job.status === "completed" || json.job.status === "error") {
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error polling job status:', err);
+      }
+    };
+
+    // Poll immediately, then every 2 seconds
+    pollJobStatus();
+    pollingIntervalRef.current = setInterval(pollJobStatus, 2000);
+
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [jobId]);
 
   function isTikTokUrl(url: string): boolean {
     try {
@@ -59,10 +132,14 @@ export default function HeroForm() {
               body: JSON.stringify({ url }),
             });
             const n8nJson = await n8nRes.json();
-            if (n8nJson?.ok) {
-              setSuccess('Workflow triggered successfully! The automation is now processing your video.');
+            if (n8nJson?.ok && n8nJson?.jobId) {
+              // Store jobId and open progress modal
+              setJobId(n8nJson.jobId);
+              setIsModalOpen(true);
               setUrl(""); // Clear form
               setLoading(false);
+              setError(null);
+              setSuccess(null);
             } else {
               const errorMsg = n8nJson?.message || n8nJson?.error || 'Failed to trigger automation workflow.';
               setError(errorMsg);
@@ -124,6 +201,38 @@ export default function HeroForm() {
           {success}
         </p>
       ) : null}
+      
+      {/* Progress Modal */}
+      {jobStatus && (
+        <ProgressModal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            // Clean up polling
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
+            }
+            // Reset job tracking after a delay to allow modal to close
+            setTimeout(() => {
+              setJobId(null);
+              setJobStatus(null);
+            }, 300);
+          }}
+          steps={jobStatus.steps}
+          currentStep={jobStatus.currentStep}
+          message={
+            jobStatus.status === "processing"
+              ? "Processing your video..."
+              : jobStatus.status === "completed"
+              ? "Automation completed successfully!"
+              : jobStatus.status === "error"
+              ? "An error occurred during automation"
+              : "Starting automation..."
+          }
+          result={jobStatus.result}
+        />
+      )}
     </form>
   );
 }

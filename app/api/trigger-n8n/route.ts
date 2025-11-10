@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
+import { createJob } from '@/lib/job-tracker';
 
 const N8N_WEBHOOK_URL = 'https://n8n-1-490z.onrender.com/webhook/c15bf8fe-4f46-4197-a0a5-186a354e4c77';
+const CALLBACK_URL = process.env.NEXT_PUBLIC_APP_URL 
+  ? `${process.env.NEXT_PUBLIC_APP_URL}/api/n8n/callback`
+  : 'http://localhost:3000/api/n8n/callback';
 
 function isValidTikTokUrl(url: string): boolean {
   if (!url || typeof url !== 'string') return false;
@@ -50,9 +54,28 @@ export async function POST(req: Request) {
       );
     }
 
-    // Send TikTok URL to n8n webhook
+    // Create a job to track this automation
+    let jobId: string;
+    try {
+      jobId = await createJob(url);
+      console.log('Created job:', jobId);
+    } catch (jobError: any) {
+      console.error('Failed to create job:', jobError);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'Failed to create job tracking. Please try again.',
+        },
+        { status: 500 }
+      );
+    }
+
+    // Send TikTok URL and jobId to n8n webhook
+    // Also include callback URL so N8n knows where to send results
     const payload = { 
-      tiktok_url: url
+      tiktok_url: url,
+      jobId: jobId,
+      callback_url: CALLBACK_URL
     };
 
     // Log the request we're sending
@@ -134,6 +157,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       message: 'Successfully triggered automation workflow',
+      jobId: jobId,
       n8nResponse: responseData,
     });
   } catch (e: any) {

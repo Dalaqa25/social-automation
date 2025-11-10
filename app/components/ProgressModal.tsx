@@ -46,6 +46,22 @@ export default function ProgressModal({
 
   const isComplete = currentStep >= steps.length;
   const hasError = result?.error || steps.some((s) => s.status === "error");
+  const userFriendlyError =
+    typeof result?.error === "string"
+      ? (() => {
+          const err = result.error.toLowerCase();
+          if (
+            err.includes("rate limit") ||
+            err.includes("429") ||
+            err.includes("quota") ||
+            err.includes("token") ||
+            err.includes("openrouter")
+          ) {
+            return "Our LLM provider hit a rate limit. Please wait a minute and try again.";
+          }
+          return null;
+        })()
+      : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -82,6 +98,13 @@ export default function ProgressModal({
           {message && (
             <div className="mb-6 text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400">{message}</p>
+            </div>
+          )}
+
+          {/* User-friendly LLM Rate Limit Message */}
+          {hasError && userFriendlyError && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+              <p className="text-sm">{userFriendlyError}</p>
             </div>
           )}
 
