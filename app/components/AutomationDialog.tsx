@@ -38,7 +38,7 @@ export default function AutomationDialog({ open, title, message, onClose }: Auto
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="automation-dialog-title">
       <div className="absolute inset-0" onClick={onClose} />
       <div
-        className={`relative w-full max-w-lg rounded-2xl border border-purple-300/40 bg-white/80 backdrop-blur-xl shadow-2xl dark:border-purple-400/30 transition-all duration-200 ease-out transform ${
+        className={`relative w-full max-w-lg rounded-2xl border-3 border-purple-300/40 bg-white shadow-2xl dark:border-purple-400/30 transition-all duration-200 ease-out transform ${
           isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-1 scale-95"
         }`}
       >
