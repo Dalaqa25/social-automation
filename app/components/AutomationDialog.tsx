@@ -12,7 +12,7 @@ export default function AutomationDialog({ open, title, message, onClose }: Auto
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-gray-200/70 backdrop-blur-lg dark:bg-gray-900/70" onClick={onClose} />
       <div className="relative w-full max-w-md rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900">
         <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
           <div className="flex items-center justify-between">
