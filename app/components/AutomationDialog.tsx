@@ -7,9 +7,10 @@ interface AutomationDialogProps {
   title: string;
   message: string;
   onClose: () => void;
+  variant?: "info" | "success" | "error";
 }
 
-export default function AutomationDialog({ open, title, message, onClose }: AutomationDialogProps) {
+export default function AutomationDialog({ open, title, message, onClose, variant = "info" }: AutomationDialogProps) {
   const [isMounted, setIsMounted] = useState(open);
   const [isVisible, setIsVisible] = useState(open);
 
@@ -38,13 +39,22 @@ export default function AutomationDialog({ open, title, message, onClose }: Auto
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="automation-dialog-title">
       <div className="absolute inset-0" onClick={onClose} />
       <div
-        className={`relative w-full max-w-lg rounded-2xl border-3 border-purple-300/40 bg-white shadow-2xl dark:border-purple-400/30 transition-all duration-200 ease-out transform ${
+        className={`relative w-full max-w-lg rounded-2xl border-5 border-purple-300/40 bg-white shadow-2xl dark:border-purple-400/30 transition-all duration-200 ease-out transform ${
           isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-1 scale-95"
         }`}
       >
         <div className="px-6 py-5">
           <div className="flex items-center justify-between">
-            <h3 id="automation-dialog-title" className="text-lg font-semibold">{title}</h3>
+            <div className="flex items-center gap-3">
+              {variant === "error" ? (
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-500/10">
+                  <svg className="h-4 w-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+                  </svg>
+                </span>
+              ) : null}
+              <h3 id="automation-dialog-title" className="text-lg font-semibold">{title}</h3>
+            </div>
             <button
               onClick={onClose}
               className="rounded-md p-1"

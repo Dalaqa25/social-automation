@@ -39,10 +39,26 @@ export default function HeroForm() {
         const { receivedAt, summary } = json.callback;
         if (receivedAt && receivedAt !== lastReceivedRef.current) {
           lastReceivedRef.current = receivedAt;
+          // Normalize technical LLM errors into a user-friendly message
+          const rawMessage = summary.message || "";
+          const lc = String(rawMessage).toLowerCase();
+          const looksLikeLlmRateLimit =
+            lc.includes("rate limit") ||
+            lc.includes("429") ||
+            lc.includes("quota") ||
+            lc.includes("token") ||
+            lc.includes("openrouter") ||
+            lc.includes("openai") ||
+            lc.includes("llm");
+
+          const friendlyMessage = looksLikeLlmRateLimit
+            ? "Our AI text generator hit a temporary usage limit and can’t generate descriptions right now. Please wait a bit and try again later."
+            : rawMessage;
+
           setAutomationNotice({
-            type: summary.type,
-            title: summary.title,
-            message: summary.message,
+            type: looksLikeLlmRateLimit ? "error" : summary.type,
+            title: looksLikeLlmRateLimit ? "AI Service Temporarily Limited" : summary.title,
+            message: friendlyMessage,
             receivedAt,
           });
           setSuccess(null);
@@ -201,6 +217,13 @@ export default function HeroForm() {
         open={dialogOpen && !!automationNotice}
         title={automationNotice?.title || "Automation Update"}
         message={automationNotice?.message || ""}
+        variant={
+          automationNotice?.type === "error"
+            ? "error"
+            : automationNotice?.type === "success"
+            ? "success"
+            : "info"
+        }
         onClose={() => {
           setDialogOpen(false);
           setAutomationNotice(null);
