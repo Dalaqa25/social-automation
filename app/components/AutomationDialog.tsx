@@ -38,7 +38,7 @@ export default function AutomationDialog({ open, title, message, onClose }: Auto
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="automation-dialog-title">
       <div className="absolute inset-0" onClick={onClose} />
       <div
-        className={`relative w-full max-w-lg rounded-2xl bg-white shadow-2xl transition-all duration-200 ease-out transform ${
+        className={`relative w-full max-w-lg rounded-2xl border border-purple-300/40 bg-white/80 backdrop-blur-xl shadow-2xl dark:border-purple-400/30 transition-all duration-200 ease-out transform ${
           isVisible ? "opacity-100 translate-y-0 scale-100" : "opacity-0 -translate-y-1 scale-95"
         }`}
       >
@@ -62,7 +62,7 @@ export default function AutomationDialog({ open, title, message, onClose }: Auto
         <div className="px-6 py-4 flex justify-end">
           <button
             onClick={onClose}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="m-1 whitespace-nowrap rounded-full bg-gradient-to-r from-indigo-600 to-pink-600 px-5 py-2.5 text-sm font-medium text-white shadow-md cursor-pointer transition duration-200 ease-out hover:opacity-95 hover:shadow-lg hover:scale-[1.02] active:opacity-90 focus:outline-none focus:ring-2 focus:ring-indigo-500/70"
           >
             OK
           </button>
