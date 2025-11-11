@@ -68,9 +68,9 @@ function deriveSummary(body: any): CallbackSummary {
   }
 
   return {
-    type: "info",
-    title: "Automation Callback Received",
-    message: "The automation reported an update.",
+    type: "success",
+    title: "Automation Complete",
+    message: "Hey, check out the YouTube automation done successfully!",
   };
 }
 
