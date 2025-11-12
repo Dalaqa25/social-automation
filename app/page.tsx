@@ -5,6 +5,7 @@ import ParallaxTilt from "./components/ParallaxTilt";
 import SignInButton from "./components/SignInButton";
 import UserStatus from "./components/UserStatus";
 import AuthError from "./components/AuthError";
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -40,6 +41,23 @@ export default function Home() {
             "linear-gradient(152.92deg, rgba(192, 132, 252, 0.2) 4.54%, rgba(232, 121, 249, 0.26) 34.2%, rgba(204, 171, 238, 0.0) 77.55%)",
         }}
       ></div>
+      <div className="absolute bottom-0 left-0 right-0 pb-6 z-10">
+        <div className="flex items-center justify-center gap-6 text-sm">
+          <Link 
+            href="/privacy" 
+            className="text-gray-500 hover:text-purple-600 transition-colors"
+          >
+            Privacy Policy
+          </Link>
+          <span className="text-gray-400">•</span>
+          <Link 
+            href="/terms" 
+            className="text-gray-500 hover:text-purple-600 transition-colors"
+          >
+            Terms of Service
+          </Link>
+        </div>
+      </div>
     </section>
   );
 }
