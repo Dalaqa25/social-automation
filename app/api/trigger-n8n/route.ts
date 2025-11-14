@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { createSupabaseServerClient } from '@/lib/supabase/ssr';
+import { getSupabaseAdminClient } from '@/lib/supabase/server';
 
 const N8N_WEBHOOK_URL = 'https://n8n-1-490z.onrender.com/webhook/c15bf8fe-4f46-4197-a0a5-186a354e4c77';
 const CALLBACK_URL = process.env.NEXT_PUBLIC_APP_URL 
@@ -53,15 +55,52 @@ export async function POST(req: Request) {
       );
     }
 
+    // Get authenticated user and YouTube token data
+    const supabase = await createSupabaseServerClient();
+    const admin = getSupabaseAdminClient();
+
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'User must be authenticated to trigger automation workflow.',
+        },
+        { status: 401 }
+      );
+    }
+
+    // Fetch YouTube token data for the user
+    const { data: youtubeData, error: youtubeError } = await admin
+      .from('youtube_tokens')
+      .select('access_token, refresh_token, channel_id, channel_name')
+      .eq('user_id', user.id)
+      .single();
+
+    if (youtubeError || !youtubeData) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: 'YouTube account not connected. Please connect your YouTube account first.',
+        },
+        { status: 400 }
+      );
+    }
+
     // Generate a lightweight job identifier for logging / callbacks
     const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    // Send TikTok URL and jobId to n8n webhook
+    // Send TikTok URL, jobId, and YouTube token data to n8n webhook
     // Also include callback URL so N8n knows where to send results
     const payload = { 
       tiktok_url: url,
       jobId: jobId,
-      callback_url: CALLBACK_URL
+      callback_url: CALLBACK_URL,
+      access_token: youtubeData.access_token,
+      refresh_token: youtubeData.refresh_token,
+      channel_id: youtubeData.channel_id,
+      channel_name: youtubeData.channel_name,
     };
 
     // Log the request we're sending
