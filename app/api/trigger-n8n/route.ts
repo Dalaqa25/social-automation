@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/ssr';
 import { getSupabaseAdminClient } from '@/lib/supabase/server';
+import { getValidYouTubeAccessToken } from '@/lib/youtube/token';
 
 const N8N_WEBHOOK_URL = 'https://n8n-1-490z.onrender.com/webhook/c15bf8fe-4f46-4197-a0a5-186a354e4c77';
 const CALLBACK_URL = process.env.NEXT_PUBLIC_APP_URL 
@@ -71,10 +72,37 @@ export async function POST(req: Request) {
       );
     }
 
-    // Fetch YouTube token data for the user
+    // Get valid (refreshed if needed) access token for the user
+    let accessToken: string;
+    try {
+      const tokenResult = await getValidYouTubeAccessToken(user.id);
+      accessToken = tokenResult.accessToken;
+    } catch (tokenError: any) {
+      if (tokenError?.message === 'No YouTube tokens found for user' || tokenError?.message === 'missing_refresh_token') {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'YouTube account not connected. Please connect your YouTube account first.',
+          },
+          { status: 400 }
+        );
+      }
+      if (tokenError?.message === 'refresh_failed') {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'Failed to refresh YouTube token. Please reconnect your YouTube account.',
+          },
+          { status: 400 }
+        );
+      }
+      throw tokenError;
+    }
+
+    // Fetch channel info and refresh_token (refresh_token doesn't change, safe to read from DB)
     const { data: youtubeData, error: youtubeError } = await admin
       .from('youtube_tokens')
-      .select('access_token, refresh_token, channel_id, channel_name')
+      .select('refresh_token, channel_id, channel_name')
       .eq('user_id', user.id)
       .single();
 
@@ -93,11 +121,12 @@ export async function POST(req: Request) {
 
     // Send TikTok URL, jobId, and YouTube token data to n8n webhook
     // Also include callback URL so N8n knows where to send results
+    // Use the fresh access_token from getValidYouTubeAccessToken
     const payload = { 
       tiktok_url: url,
       jobId: jobId,
       callback_url: CALLBACK_URL,
-      access_token: youtubeData.access_token,
+      access_token: accessToken, // Use the refreshed token
       refresh_token: youtubeData.refresh_token,
       channel_id: youtubeData.channel_id,
       channel_name: youtubeData.channel_name,

@@ -27,9 +27,16 @@ export async function getValidYouTubeAccessToken(userId: string): Promise<{ acce
     throw new Error('missing_refresh_token');
   }
 
+  const now = Date.now();
   const expiresAt = row.expiry_date ? new Date(row.expiry_date).getTime() : 0;
   const refreshThreshold = 2 * 60 * 1000; // 2 minutes
-  const needsRefresh = !row.access_token || Date.now() > (expiresAt - refreshThreshold);
+  
+  // Explicitly check if token is expired (expiry_date < NOW)
+  // Also refresh if token will expire within 2 minutes (proactive refresh)
+  const isExpired = expiresAt > 0 && now >= expiresAt;
+  const willExpireSoon = expiresAt > 0 && now >= (expiresAt - refreshThreshold);
+  const hasNoExpiry = expiresAt === 0; // No expiry_date in DB, treat as expired
+  const needsRefresh = !row.access_token || isExpired || willExpireSoon || hasNoExpiry;
 
   if (!needsRefresh) {
     return { accessToken: row.access_token as string, updated: false };

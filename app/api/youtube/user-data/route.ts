@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/ssr';
 import { getSupabaseAdminClient } from '@/lib/supabase/server';
+import { getValidYouTubeAccessToken } from '@/lib/youtube/token';
 
 export async function GET() {
   try {
@@ -14,10 +15,25 @@ export async function GET() {
       return NextResponse.json({ error: 'not_authenticated' }, { status: 401 });
     }
 
-    // Fetch YouTube token data for the user
+    // Get valid (refreshed if needed) access token
+    let accessToken: string;
+    try {
+      const tokenResult = await getValidYouTubeAccessToken(user.id);
+      accessToken = tokenResult.accessToken;
+    } catch (tokenError: any) {
+      if (tokenError?.message === 'No YouTube tokens found for user' || tokenError?.message === 'missing_refresh_token') {
+        return NextResponse.json({ 
+          error: 'no_tokens_found',
+          message: 'No YouTube tokens found for this user' 
+        }, { status: 404 });
+      }
+      throw tokenError;
+    }
+
+    // Fetch channel info and refresh_token
     const { data, error } = await admin
       .from('youtube_tokens')
-      .select('access_token, refresh_token, channel_id, channel_name')
+      .select('refresh_token, channel_id, channel_name')
       .eq('user_id', user.id)
       .single();
 
@@ -29,7 +45,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      access_token: data.access_token,
+      access_token: accessToken, // Use the refreshed token
       refresh_token: data.refresh_token,
       channel_id: data.channel_id,
       channel_name: data.channel_name,
