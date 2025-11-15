@@ -55,6 +55,13 @@ export async function getValidYouTubeAccessToken(userId: string): Promise<{ acce
 
   const tokenData = await tokenRes.json();
   if (!tokenRes.ok || !tokenData.access_token) {
+    console.error('❌ [Token Refresh] Google API Error:', {
+      status: tokenRes.status,
+      statusText: tokenRes.statusText,
+      error: tokenData.error || 'Unknown error',
+      error_description: tokenData.error_description || 'No description',
+      fullResponse: tokenData
+    });
     throw new Error('refresh_failed');
   }
 

@@ -27,6 +27,13 @@ export async function GET() {
           message: 'No YouTube tokens found for this user' 
         }, { status: 404 });
       }
+      if (tokenError?.message === 'refresh_failed') {
+        console.error('Token refresh failed for user:', user.id);
+        return NextResponse.json({ 
+          error: 'refresh_failed',
+          message: 'Failed to refresh YouTube token. Please reconnect your YouTube account.' 
+        }, { status: 401 });
+      }
       throw tokenError;
     }
 
