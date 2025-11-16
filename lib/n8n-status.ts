@@ -27,6 +27,15 @@ function toPlainString(value: unknown): string {
 }
 
 function deriveSummary(body: any): CallbackSummary {
+  // Check for UploadStatus first - if it's "uploaded", show success
+  if (body?.UploadStatus === "uploaded") {
+    return {
+      type: "success",
+      title: "Upload Complete",
+      message: "Hey, check out the YouTube automation done successfully!",
+    };
+  }
+
   if (body?.llmerror ?? body?.llmError) {
     return {
       type: "error",
