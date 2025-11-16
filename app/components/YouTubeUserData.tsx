@@ -47,14 +47,6 @@ export default function YouTubeUserData() {
         if (mounted) {
           setData(result);
           setError(null);
-          
-          // Console log the data as requested
-          console.log('YouTube User Data:', {
-            access_token: result.access_token,
-            refresh_token: result.refresh_token,
-            channel_id: result.channel_id,
-            channel_name: result.channel_name,
-          });
         }
       } catch (err) {
         if (mounted) {
@@ -145,9 +137,6 @@ export default function YouTubeUserData() {
           </span>
         </div>
       </div>
-      <p className="mt-3 text-[10px] text-gray-500">
-        Full data logged to console
-      </p>
     </div>
   );
 }

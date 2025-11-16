@@ -74,9 +74,11 @@ export async function POST(req: Request) {
 
     // Get valid (refreshed if needed) access token for the user
     let accessToken: string;
+    let tokenWasRefreshed = false;
     try {
       const tokenResult = await getValidYouTubeAccessToken(user.id);
       accessToken = tokenResult.accessToken;
+      tokenWasRefreshed = tokenResult.updated;
     } catch (tokenError: any) {
       if (tokenError?.message === 'No YouTube tokens found for user' || tokenError?.message === 'missing_refresh_token') {
         return NextResponse.json(
@@ -99,10 +101,10 @@ export async function POST(req: Request) {
       throw tokenError;
     }
 
-    // Fetch channel info and refresh_token (refresh_token doesn't change, safe to read from DB)
+    // Fetch channel info (only channel_name needed)
     const { data: youtubeData, error: youtubeError } = await admin
       .from('youtube_tokens')
-      .select('refresh_token, channel_id, channel_name')
+      .select('channel_name')
       .eq('user_id', user.id)
       .single();
 
@@ -119,23 +121,29 @@ export async function POST(req: Request) {
     // Generate a lightweight job identifier for logging / callbacks
     const jobId = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    // Send TikTok URL, jobId, and YouTube token data to n8n webhook
-    // Also include callback URL so N8n knows where to send results
-    // Use the fresh access_token from getValidYouTubeAccessToken
+    // Format callback URL - remove protocol if present to match required format
+    let formattedCallbackUrl = CALLBACK_URL;
+    if (formattedCallbackUrl.startsWith('http://') || formattedCallbackUrl.startsWith('https://')) {
+      formattedCallbackUrl = formattedCallbackUrl.replace(/^https?:\/\//, '');
+    }
+
+    // Send TikTok URL, jobId, callback URL, access token, and channel name to n8n webhook
     const payload = { 
       tiktok_url: url,
       jobId: jobId,
-      callback_url: CALLBACK_URL,
-      access_token: accessToken, // Use the refreshed token
-      refresh_token: youtubeData.refresh_token,
-      channel_id: youtubeData.channel_id,
+      callback_url: formattedCallbackUrl,
+      access_token: accessToken,
       channel_name: youtubeData.channel_name,
     };
 
-    // Log the request we're sending
+    // Log the request we're sending (without sensitive token data)
+    const sanitizedPayload = {
+      ...payload,
+      access_token: '[REDACTED]',
+    };
     console.log('=== SENDING REQUEST TO N8N ===');
     console.log('URL:', N8N_WEBHOOK_URL);
-    console.log('Payload:', JSON.stringify(payload, null, 2));
+    console.log('Payload:', JSON.stringify(sanitizedPayload, null, 2));
 
     // Create abort controller for timeout
     const controller = new AbortController();
@@ -212,6 +220,7 @@ export async function POST(req: Request) {
       ok: true,
       message: 'Successfully triggered automation workflow',
       jobId: jobId,
+      tokenRefreshed: tokenWasRefreshed,
       n8nResponse: responseData,
     });
   } catch (e: any) {

@@ -17,9 +17,11 @@ export default function HeroForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [refreshingToken, setRefreshingToken] = useState(false);
   const [automationNotice, setAutomationNotice] = useState<AutomationNotice | null>(null);
   const [listeningForCallback, setListeningForCallback] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [tokenRefreshDialogOpen, setTokenRefreshDialogOpen] = useState(false);
   const lastReceivedRef = useRef<string | null>(null);
   const pollAttemptsRef = useRef(0);
   const isValid = useMemo(() => validateVideoUrl(url), [url]);
@@ -137,13 +139,21 @@ export default function HeroForm() {
 
         if (isTikTokUrl(url)) {
           try {
+            setRefreshingToken(true);
             const n8nRes = await fetch("/api/trigger-n8n", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ url }),
             });
             const n8nJson = await n8nRes.json();
+            setRefreshingToken(false);
+            
             if (n8nJson?.ok) {
+              // Show token refresh dialog if token was refreshed
+              if (n8nJson?.tokenRefreshed) {
+                setTokenRefreshDialogOpen(true);
+              }
+              
               setUrl("");
               setLoading(false);
               setSuccess("Automation workflow triggered. Waiting for response…");
@@ -158,6 +168,7 @@ export default function HeroForm() {
               setLoading(false);
             }
           } catch (n8nErr) {
+            setRefreshingToken(false);
             setError("Failed to trigger automation workflow. Please try again.");
             console.error("n8n error:", n8nErr);
             setLoading(false);
@@ -196,9 +207,9 @@ export default function HeroForm() {
           <button
             type="submit"
             className="m-1 whitespace-nowrap rounded-full bg-gradient-to-r from-indigo-600 to-pink-600 px-5 py-2.5 font-medium text-white shadow-md cursor-pointer transition duration-200 ease-out hover:opacity-95 hover:shadow-lg hover:scale-[1.02] active:opacity-90 focus:outline-none focus:ring-2 focus:ring-indigo-500/70 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!isValid || loading}
+            disabled={!isValid || loading || refreshingToken}
           >
-            {loading ? "Processing..." : "Start"}
+            {refreshingToken ? "Refreshing connection..." : loading ? "Processing..." : "Start"}
           </button>
         </div>
       </div>
@@ -229,6 +240,16 @@ export default function HeroForm() {
           setAutomationNotice(null);
           setListeningForCallback(false);
           setSuccess(null);
+        }}
+      />
+
+      <AutomationDialog
+        open={tokenRefreshDialogOpen}
+        title="Connection Refreshed"
+        message="Your YouTube connection has been refreshed to ensure everything works smoothly. You're all set!"
+        variant="success"
+        onClose={() => {
+          setTokenRefreshDialogOpen(false);
         }}
       />
     </form>

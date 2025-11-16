@@ -52,6 +52,12 @@ export default function AutomationDialog({ open, title, message, onClose, varian
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
                   </svg>
                 </span>
+              ) : variant === "success" ? (
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-green-500/10">
+                  <svg className="h-4 w-4 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </span>
               ) : null}
               <h3 id="automation-dialog-title" className="text-lg font-semibold">{title}</h3>
             </div>
