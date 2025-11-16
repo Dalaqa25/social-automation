@@ -5,7 +5,6 @@ import ParallaxTilt from "./components/ParallaxTilt";
 import SignInButton from "./components/SignInButton";
 import UserStatus from "./components/UserStatus";
 import AuthError from "./components/AuthError";
-import YouTubeUserData from "./components/YouTubeUserData";
 import Link from "next/link";
 
 export default function Home() {
@@ -32,7 +31,6 @@ export default function Home() {
             <div className="mt-4">
               <SignInButton />
             </div>
-            <YouTubeUserData />
           </div>
         </ParallaxTilt>
       </div>
