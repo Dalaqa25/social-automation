@@ -42,17 +42,26 @@ export default function Home() {
         }}
       ></div>
       <div className="absolute bottom-0 left-0 right-0 pb-6 z-10">
-        <div className="flex items-center justify-center gap-6 text-sm">
-          <Link 
-            href="/privacy" 
-            className="text-gray-500 hover:text-purple-600 transition-colors"
+        <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-500">
+          <Link
+            href="/privacy"
+            className="hover:text-purple-600 transition-colors"
           >
             Privacy Policy
           </Link>
           <span className="text-gray-400">•</span>
-          <Link 
-            href="/terms" 
-            className="text-gray-500 hover:text-purple-600 transition-colors"
+          <Link
+            href="https://www.modelgrow.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-gray-700 hover:text-purple-600 transition-colors"
+          >
+            Powered by ModelGrow
+          </Link>
+          <span className="text-gray-400">•</span>
+          <Link
+            href="/terms"
+            className="hover:text-purple-600 transition-colors"
           >
             Terms of Service
           </Link>

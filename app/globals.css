@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+@layer utilities {
+  @keyframes mg-float {
+    0% {
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      transform: translateY(-10px) scale(1.04);
+    }
+    100% {
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  .animate-mg-float {
+    animation: mg-float 1.8s ease-in-out infinite;
+  }
+}
