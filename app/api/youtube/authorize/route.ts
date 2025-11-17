@@ -31,9 +31,12 @@ export async function GET() {
       const refMatch = supabaseUrl.match(/https?:\/\/([a-z0-9]{20,}).supabase.co/i);
       const projectRef = refMatch?.[1];
       if (projectRef) {
-        const expectedCookie = `sb-${projectRef}-auth-token`;
-        if (!cookieNames.includes(expectedCookie)) {
-          console.error('Supabase cookie name mismatch. Expected:', expectedCookie, 'Found:', cookieNames);
+        const expectedCookieBase = `sb-${projectRef}-auth-token`;
+        const hasSupabaseCookie = cookieNames.some((name) => {
+          return name === expectedCookieBase || name.startsWith(`${expectedCookieBase}.`);
+        });
+        if (!hasSupabaseCookie) {
+          console.error('Supabase cookie missing. Expected base:', expectedCookieBase, 'Found:', cookieNames);
         }
       }
     } catch {}
